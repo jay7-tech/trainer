@@ -1,5 +1,19 @@
+# Global ARG for dynamic base image resolution
+ARG TARGETARCH
+
 FROM mpioperator/base:v0.7.0 AS mpi
-FROM nvidia/cuda:13.1.1-devel-ubuntu22.04
+
+# AMD64 gets the heavy GPU CUDA image
+FROM nvidia/cuda:13.1.1-devel-ubuntu22.04 AS base-amd64
+
+# ARM64 gets the lightweight Ubuntu image since CUDA MLX isn't supported there
+FROM ubuntu:22.04 AS base-arm64
+
+# Inherit dynamically from the target architecture
+FROM base-${TARGETARCH}
+
+# Re-declare ARG into the current build stage so later RUN commands can use it
+ARG TARGETARCH
 
 # Install libraries required for OpenMPI to work. Image installs OpenMPI 5.0.7
 RUN apt update && apt install -y --no-install-recommends \
@@ -24,7 +38,6 @@ COPY --from=mpi /home/mpiuser/.sshd_config /home/mpiuser/.sshd_config
 ENV HOME=/home/mpiuser
 ENV PATH=$HOME/.local/bin:$PATH
 
-ARG TARGETARCH
 COPY cmd/runtimes/mlx/requirements.txt .
 RUN pip install --upgrade pip
 
